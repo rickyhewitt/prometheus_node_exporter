@@ -1,0 +1,44 @@
+---
+  - hosts: all
+    remote_user: ricky
+    become: yes
+    become_method: sudo
+    vars:
+      - prometheus_node_exporter_version: 1.0.1
+    tasks:
+    - name: Ensure temporary directory (/tmp/node_exporter-{{prometheus_node_exporter_version}}.linux-amd64/) exists
+      file:
+        path: /tmp/node_exporter-{{prometheus_node_exporter_version}}.linux-amd64/
+        state: directory
+        mode: 0755
+    - name: Download & Extract node_exporter-{{prometheus_node_exporter_version}}.linux-amd64.tar.gz
+      unarchive:
+        src: https://github.com/prometheus/node_exporter/releases/download/v{{prometheus_node_exporter_version}}/node_exporter-{{prometheus_node_exporter_version}}.linux-amd64.tar.gz
+        dest: /tmp/
+        remote_src: yes
+    - name: Install
+      command: mv /tmp/node_exporter-{{prometheus_node_exporter_version}}.linux-amd64/node_exporter /usr/local/bin/
+    - name: Add node_exporter user (/bin/false, no home)
+      user:
+        name: node_exporter
+        shell: /bin/false
+        create_home: no
+    - name: Create systemd service
+      copy:
+        src: node_exporter.service
+        dest: /etc/systemd/system/node_exporter.service
+        owner: root
+        group: root
+        mode: 0644
+    - name: Start service
+      service:
+        name: node_exporter
+        state: started
+    - name: Enable service on boot
+      service:
+        name: node_exporter
+        enabled: yes
+    - name: Cleanup
+      file:
+        path: /tmp/node_exporter-{{prometheus_node_exporter_version}}.linux-amd64/
+        state: absent
